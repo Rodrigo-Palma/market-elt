@@ -1,0 +1,8 @@
+market_elt:
+  target: dev
+  outputs:
+    dev:
+      type: duckdb
+      path: "{{ env_var('MARKET_ELT_DB', 'market_elt.duckdb') }}"
+      schema: main
+      threads: 1

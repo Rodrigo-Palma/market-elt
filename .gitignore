@@ -1,0 +1,32 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+
+# Virtual envs
+.venv/
+venv/
+
+# Test / coverage
+.pytest_cache/
+.coverage
+coverage.xml
+.mypy_cache/
+.ruff_cache/
+
+# DuckDB artifacts
+*.duckdb
+*.duckdb.wal
+
+# dbt
+transform/target/
+transform/dbt_packages/
+transform/logs/
+logs/
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/

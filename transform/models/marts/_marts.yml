@@ -1,0 +1,12 @@
+version: 2
+
+models:
+  - name: daily_metrics
+    description: "Per-ticker summary: observations, last close, annualized volatility."
+    columns:
+      - name: ticker
+        tests: [not_null, unique]
+      - name: last_close
+        tests: [not_null]
+      - name: observations
+        tests: [not_null]

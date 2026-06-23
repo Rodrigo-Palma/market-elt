@@ -1,0 +1,18 @@
+version: 2
+
+sources:
+  - name: raw
+    schema: raw
+    tables:
+      - name: prices
+
+models:
+  - name: stg_prices
+    description: "Cleaned, typed daily close prices."
+    columns:
+      - name: price_date
+        tests: [not_null]
+      - name: ticker
+        tests: [not_null]
+      - name: close
+        tests: [not_null]
