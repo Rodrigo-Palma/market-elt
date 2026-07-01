@@ -75,5 +75,5 @@ MIT — see [LICENSE](LICENSE).
 
 ## Author
 
-**Rodrigo Stachlewski Palma** — Data & AI Engineer.
+**Rodrigo Stachlewski Palma** — Senior Data & AI Engineer.
 [LinkedIn](https://linkedin.com/in/rodrigospalma/) · [GitHub](https://github.com/Rodrigo-Palma)
