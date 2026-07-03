@@ -50,13 +50,29 @@ uv run dbt build --project-dir transform --profiles-dir transform
 uv run python -c "import duckdb; print(duckdb.connect('market_elt.duckdb').sql('select * from daily_metrics'))"
 ```
 
+## Results
+
+Measured locally on an Apple M3 Max (macOS, Python 3.12), single run of the
+full pipeline against the bundled sample data:
+
+| Step | What runs | Outcome | Wall time |
+|---|---|---|---|
+| Extract-Load | `python -m market_elt.ingest` | 15 rows → `raw.prices` | ~0.6 s |
+| Transform + test | `dbt build` (1 view, 1 table, 8 data tests) | 10/10 PASS | ~2.7 s (0.19 s execution) |
+| Marts | `daily_metrics` | 3 tickers × 5 observations, close + annualized volatility | — |
+
+The dataset is intentionally tiny: the point of this repo is the **shape** of
+the pipeline (EL → dbt staging → marts → data-quality gates, all reproducible
+offline), not data volume. Swap `data/sample/prices.csv` for a real feed and
+the same contract holds.
+
 ## Development
 
 ```bash
 make install   # uv sync --extra dev
 make lint      # ruff
 make type      # mypy
-make test      # pytest (load step)
+make test      # pytest (load + transform)
 make build     # ingest + dbt build (run + data-quality tests)
 ```
 
@@ -66,7 +82,7 @@ make build     # ingest + dbt build (run + data-quality tests)
 src/market_elt/      extract-load step (Python + DuckDB)
 transform/           dbt project (models + tests + profile)
 data/sample/         bundled sample prices
-tests/               pytest for the load step
+tests/               pytest for the load and transform steps
 ```
 
 ## License
