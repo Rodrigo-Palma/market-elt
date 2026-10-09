@@ -21,3 +21,27 @@ models:
       - name: annualized_volatility
         description: "Sample stddev of daily simple returns times sqrt(252). Null with < 3 prices."
         data_type: double
+
+unit_tests:
+  - name: daily_metrics_matches_reference
+    description: >
+      Expected rows come from scripts/daily_metrics_reference.py (stdlib,
+      two-pass stdev), not from the SQL. Covers unsorted input dates, a
+      ticker with one price (no return) and one with two prices (one return,
+      so the sample stddev is null).
+    model: daily_metrics
+    given:
+      - input: ref('stg_prices')
+        rows:
+          - {price_date: "2026-01-05", ticker: AAA, close: 101.0}
+          - {price_date: "2026-01-01", ticker: AAA, close: 100.0}
+          - {price_date: "2026-01-03", ticker: AAA, close: 99.0}
+          - {price_date: "2026-01-02", ticker: AAA, close: 102.0}
+          - {price_date: "2026-01-02", ticker: BBB, close: 20.0}
+          - {price_date: "2026-01-02", ticker: CCC, close: 50.0}
+          - {price_date: "2026-01-01", ticker: CCC, close: 40.0}
+    expect:
+      rows:
+        - {ticker: AAA, observations: 4, last_date: "2026-01-05", last_close: 101.0, annualized_volatility: 0.4537949098}
+        - {ticker: BBB, observations: 1, last_date: "2026-01-02", last_close: 20.0, annualized_volatility: null}
+        - {ticker: CCC, observations: 2, last_date: "2026-01-02", last_close: 50.0, annualized_volatility: null}
