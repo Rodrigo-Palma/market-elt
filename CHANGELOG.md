@@ -4,6 +4,38 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/) and the project adheres to
 [Semantic Versioning](https://semver.org/).
 
+## [0.3.0] - 2026-10-09
+
+### Fixed
+- `nan` and `inf` closes and tickers made only of spaces passed every gate
+  and reached `daily_metrics` (a run exited 0 with `last_close = nan` and a
+  ticker `''`). `price_reject_reason` now quarantines them as `nan_close`,
+  `infinite_close` and `blank_ticker`.
+- A missing CSV or a dbt crash that leaves no `run_results.json` (bad
+  `--vars`, parse error) left no row in `meta.pipeline_runs`. Both are now
+  recorded (`load_failed`, `crashed`) and re-raised; the CLI exits 1.
+- A non-zero dbt exit with a successful artifact counted as success; it is
+  now recorded as `nonzero_exit`.
+
+### Added
+- Singular test `assert_staging_reconciles_with_raw`:
+  `count(raw) = count(stg_prices) + count(stg_prices_rejected)`.
+- Recency gate on the data, `max_date_at_most_days_old` on
+  `stg_prices.price_date`, off by default; `market-elt run
+  --max-price-age-days N [--as-of YYYY-MM-DD]` turns it on.
+- `scripts/mutations.py` (`make mutate`, manual `Mutations` workflow): 9
+  mutations applied to a temp copy, each required to turn its test red.
+- `benchmarks/leakage.py` (`make leakage`): the point-in-time feature vs a
+  centered window on synthetic random walks, with Wilson intervals.
+- 1e7 rows in the scale benchmark.
+
+### Changed
+- CI no longer runs `dbt source freshness` right after the pipeline, where
+  it could not fail; `make all` drops it too.
+- dbt anonymous usage tracking is off; `transform/.user.yml` is untracked.
+- CI declares `permissions: contents: read`; actions are pinned by commit
+  SHA and the Docker base images by digest, with Dependabot for both.
+
 ## [0.2.0] - 2026-10-09
 
 ### Added
@@ -45,5 +77,6 @@ All notable changes to this project are documented here. The format follows
 - Bundled sample data so `dbt build` runs offline.
 - Tooling: ruff, mypy, pytest, GitHub Actions CI running the full ELT.
 
+[0.3.0]: https://github.com/Rodrigo-Palma/market-elt/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/Rodrigo-Palma/market-elt/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/Rodrigo-Palma/market-elt/releases/tag/v0.1.0
