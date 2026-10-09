@@ -1,4 +1,4 @@
-.PHONY: install lint fmt type test build all
+.PHONY: install lint fmt type test pipeline freshness build all
 
 install:
 	uv sync --locked --extra dev
@@ -15,8 +15,12 @@ type:
 test:
 	uv run pytest
 
-build:
-	uv run python -m market_elt.ingest
-	uv run dbt build --project-dir transform --profiles-dir transform
+pipeline:
+	uv run market-elt run
 
-all: lint type test build
+freshness:
+	uv run dbt source freshness --project-dir transform --profiles-dir transform
+
+build: pipeline
+
+all: lint type test pipeline freshness

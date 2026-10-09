@@ -26,7 +26,7 @@ dev = [
 ]
 
 [project.scripts]
-market-elt = "market_elt.ingest:main"
+market-elt = "market_elt.cli:entrypoint"
 
 [project.urls]
 Homepage = "https://github.com/Rodrigo-Palma/market-elt"

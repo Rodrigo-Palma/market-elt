@@ -41,8 +41,8 @@ jobs:
       - name: Tests (pytest)
         run: uv run pytest
 
-      - name: ELT — load
-        run: uv run python -m market_elt.ingest
+      - name: Pipeline (load, dbt build, run log)
+        run: uv run market-elt run
 
-      - name: Transform + data-quality tests (dbt)
-        run: uv run dbt build --project-dir transform --profiles-dir transform
+      - name: Source freshness (dbt)
+        run: uv run dbt source freshness --project-dir transform --profiles-dir transform
