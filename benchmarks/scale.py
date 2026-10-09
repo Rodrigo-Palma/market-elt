@@ -32,7 +32,7 @@ from market_elt.synthetic import write_synthetic_prices
 
 SEED: Final = 20260101
 DAYS: Final = 1000
-DEFAULT_SIZES: Final = (10_000, 100_000, 1_000_000)
+DEFAULT_SIZES: Final = (10_000, 100_000, 1_000_000, 10_000_000)
 OUT_DIR: Final = Path(__file__).parent
 
 
