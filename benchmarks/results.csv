@@ -1,0 +1,4 @@
+rows,tickers,days,load_s,dbt_build_wall_s,dbt_build_exec_s,dbt_nodes_passed,hardware,python,duckdb,dbt-core,dbt-duckdb
+10000,10,1000,0.013,2.722,0.42,24,"Apple M3 Max, Darwin 27.0.0",3.12.13,1.5.4,1.11.11,1.10.1
+100000,100,1000,0.042,2.448,0.465,24,"Apple M3 Max, Darwin 27.0.0",3.12.13,1.5.4,1.11.11,1.10.1
+1000000,1000,1000,0.124,2.605,0.716,24,"Apple M3 Max, Darwin 27.0.0",3.12.13,1.5.4,1.11.11,1.10.1

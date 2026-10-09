@@ -59,7 +59,7 @@ exclude_also = ['if __name__ == "__main__":']
 
 [tool.mypy]
 python_version = "3.12"
-files = ["src", "scripts"]
+files = ["src", "scripts", "benchmarks"]
 ignore_missing_imports = true
 disallow_untyped_defs = true
 warn_redundant_casts = true
