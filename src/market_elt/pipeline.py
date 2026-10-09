@@ -15,8 +15,8 @@ from typing import Final
 
 import duckdb
 
-from market_elt.dbt_runner import DbtSummary, run_dbt
-from market_elt.ingest import ContractViolationError, load_prices
+from market_elt.dbt_runner import DbtRun, run_dbt
+from market_elt.ingest import load_prices
 from market_elt.logs import get_logger
 
 RUNS_DDL: Final = """
@@ -37,6 +37,8 @@ CREATE TABLE IF NOT EXISTS meta.pipeline_runs (
 """
 
 LOAD_FAILED: Final = "load_failed"
+DBT_CRASHED: Final = "crashed"
+NONZERO_EXIT: Final = "nonzero_exit"
 
 
 @dataclass(frozen=True)
@@ -95,6 +97,20 @@ def record_run(db_path: Path, run: PipelineRun) -> None:
         con.close()
 
 
+def _dbt_status(dbt: DbtRun) -> str:
+    """The artifact's verdict, unless dbt itself exited non-zero."""
+    if dbt.returncode != 0 and dbt.summary.status == "success":
+        return NONZERO_EXIT
+    return dbt.summary.status
+
+
+def _record_failure(db_path: Path, run: PipelineRun, event: str, exc: Exception) -> None:
+    record_run(db_path, run)
+    get_logger().error(
+        event, extra={"fields": {"run_id": run.run_id, "error": f"{type(exc).__name__}: {exc}"}}
+    )
+
+
 def run_pipeline(
     csv_path: Path,
     db_path: Path,
@@ -103,8 +119,11 @@ def run_pipeline(
 ) -> PipelineRun:
     """Load ``csv_path``, run ``dbt build`` and record the run.
 
-    A contract violation at load time is recorded as ``load_failed`` and
-    re-raised; a failing dbt node is recorded and returned.
+    Every run leaves one row in ``meta.pipeline_runs``. A load that raises
+    (contract violation, missing file) is recorded as ``load_failed``, and a
+    dbt invocation that leaves no artifact (parse error, bad ``--vars``) as
+    ``crashed``; both are then re-raised. A failing dbt node is recorded and
+    returned.
     """
     log = get_logger()
     started = PipelineRun(
@@ -124,20 +143,24 @@ def run_pipeline(
     log.info("run.started", extra={"fields": {"run_id": started.run_id, "source": str(csv_path)}})
     try:
         rows_loaded = load_prices(csv_path, db_path)
-    except ContractViolationError as exc:
-        failed = replace(started, finished_at=_now())
-        record_run(db_path, failed)
-        log.error("load.failed", extra={"fields": {"run_id": started.run_id, "error": str(exc)}})
+    except Exception as exc:
+        _record_failure(db_path, replace(started, finished_at=_now()), "load.failed", exc)
         raise
     log.info("load.done", extra={"fields": {"run_id": started.run_id, "rows": rows_loaded}})
+    loaded = replace(started, rows_loaded=rows_loaded)
 
-    summary: DbtSummary = run_dbt("build", db_path, target_path, dbt_args).summary
+    try:
+        dbt = run_dbt("build", db_path, target_path, dbt_args)
+    except Exception as exc:
+        crashed = replace(loaded, finished_at=_now(), dbt_status=DBT_CRASHED)
+        _record_failure(db_path, crashed, "dbt.crashed", exc)
+        raise
+    summary = dbt.summary
     run = replace(
-        started,
+        loaded,
         finished_at=_now(),
-        rows_loaded=rows_loaded,
         rows_rejected=_count_rejected(db_path),
-        dbt_status=summary.status,
+        dbt_status=_dbt_status(dbt),
         n_pass=summary.n_pass,
         n_fail=summary.n_fail,
         n_warn=summary.n_warn,

@@ -9,8 +9,9 @@ from pathlib import Path
 import duckdb
 import pytest
 
-from market_elt import config
+from market_elt import config, pipeline
 from market_elt.cli import main
+from market_elt.dbt_runner import DbtRun, DbtSummary
 from market_elt.ingest import ContractViolationError
 from market_elt.logs import JsonFormatter
 from market_elt.pipeline import run_pipeline
@@ -71,18 +72,55 @@ def test_contract_violation_is_recorded_then_raised(tmp_path: Path) -> None:
     ]
 
 
+def test_missing_csv_is_recorded_then_raised(tmp_path: Path) -> None:
+    db = tmp_path / "pipe.duckdb"
+    with pytest.raises(FileNotFoundError):
+        run_pipeline(tmp_path / "missing.csv", db, tmp_path / "target")
+    assert _fetch(db, "SELECT dbt_status, rows_loaded FROM meta.pipeline_runs") == [
+        ("load_failed", 0)
+    ]
+
+
+def test_dbt_crash_without_artifact_is_recorded_then_raised(tmp_path: Path) -> None:
+    db = tmp_path / "pipe.duckdb"
+    with pytest.raises(RuntimeError, match="run_results"):
+        run_pipeline(config.SAMPLE_CSV, db, tmp_path / "target", ("--vars", "{not: [yaml"))
+    assert _fetch(
+        db, "SELECT dbt_status, rows_loaded, rows_rejected, n_pass FROM meta.pipeline_runs"
+    ) == [("crashed", 15, None, 0)]
+
+
+def test_nonzero_dbt_exit_is_not_a_success(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    green = DbtSummary(status="success", n_pass=1, n_fail=0, n_warn=0, n_skip=0, failed_nodes=())
+
+    def fake_run_dbt(*_: object) -> DbtRun:
+        return DbtRun(returncode=2, stdout="", summary=green)
+
+    monkeypatch.setattr(pipeline, "run_dbt", fake_run_dbt)
+    run = run_pipeline(config.SAMPLE_CSV, tmp_path / "pipe.duckdb", tmp_path / "target")
+
+    assert run.dbt_status == "nonzero_exit"
+    assert not run.succeeded
+
+
 def test_cli_exit_code_follows_the_run(tmp_path: Path) -> None:
     common = ["--db", str(tmp_path / "cli.duckdb"), "--target-path", str(tmp_path / "t")]
     assert main(["run", "--csv", str(FIXTURES / "bad_header.csv"), *common]) == 1
     assert main(["run", "--csv", str(FIXTURES / "null_close.csv"), *common]) == 1
     tolerant = ["--max-rejected-rows", "1"]
     assert main(["run", "--csv", str(FIXTURES / "null_close.csv"), *common, *tolerant]) == 0
+    assert main(["run", "--csv", str(tmp_path / "missing.csv"), *common]) == 1
+    recent = ["--max-price-age-days", "3", "--as-of", "2026-06-07"]
+    assert main(["run", *common, *recent]) == 0
+    assert main(["run", *common, "--max-price-age-days", "3", "--as-of", "2026-06-09"]) == 1
 
 
 def test_cli_load_only(tmp_path: Path) -> None:
     db = tmp_path / "cli.duckdb"
     assert main(["load", "--db", str(db)]) == 0
     assert _fetch(db, "SELECT count(*) FROM raw.prices") == [(15,)]
+    assert main(["load", "--db", str(db), "--csv", str(FIXTURES / "bad_type.csv")]) == 1
+    assert main(["load", "--db", str(db), "--csv", str(tmp_path / "missing.csv")]) == 1
 
 
 def test_json_formatter_emits_one_parseable_object() -> None:
