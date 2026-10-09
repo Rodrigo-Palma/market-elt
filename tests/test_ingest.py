@@ -9,7 +9,7 @@ import duckdb
 import pytest
 
 from market_elt import config
-from market_elt.ingest import RAW_COLUMNS, ContractViolationError, load_prices
+from market_elt.ingest import RAW_COLUMNS, ContractViolationError, load_prices, main
 
 FIXTURES = Path(__file__).parent / "fixtures"
 
@@ -74,4 +74,16 @@ def test_failed_load_keeps_the_previous_good_table(tmp_path: Path) -> None:
     load_prices(config.SAMPLE_CSV, db)
     with pytest.raises(ContractViolationError):
         load_prices(FIXTURES / "bad_type.csv", db)
+    assert _fetch(db, "SELECT count(*) FROM raw.prices") == [(15,)]
+
+
+def test_main_loads_the_configured_sample(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    db = tmp_path / "main.duckdb"
+    monkeypatch.setattr(config, "DB_PATH", db)
+
+    main()
+
+    assert "Loaded 15 rows" in capsys.readouterr().out
     assert _fetch(db, "SELECT count(*) FROM raw.prices") == [(15,)]

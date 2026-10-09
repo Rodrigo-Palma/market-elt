@@ -53,6 +53,10 @@ addopts = "-q --cov=market_elt --cov-report=term-missing"
 testpaths = ["tests"]
 pythonpath = ["src"]
 
+[tool.coverage.report]
+fail_under = 95
+exclude_also = ['if __name__ == "__main__":']
+
 [tool.mypy]
 python_version = "3.12"
 files = ["src"]
