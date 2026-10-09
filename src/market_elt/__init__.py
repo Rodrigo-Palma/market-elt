@@ -1,3 +1,5 @@
-"""market-elt — a reproducible DuckDB + dbt ELT pipeline over market data."""
+"""market-elt: a reproducible DuckDB + dbt ELT pipeline over market data."""
 
-__version__ = "0.1.0"
+from importlib.metadata import version
+
+__version__ = version("market-elt")
