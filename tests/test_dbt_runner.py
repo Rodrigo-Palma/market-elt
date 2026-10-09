@@ -30,14 +30,20 @@ def test_counts_pass_fail_warn_and_skip(tmp_path: Path) -> None:
             _node("model.market_elt.daily_metrics", "error"),
             _node("test.market_elt.row_count_at_most_x.ghi", "warn"),
             _node("test.market_elt.not_null_daily_metrics_ticker.jkl", "skipped"),
+            _node("source.market_elt.raw.prices", "runtime error"),
+            _node("unit_test.market_elt.daily_metrics.matches_reference", "pass"),
         ],
     )
 
     summary = parse_run_results(path)
 
-    assert (summary.n_pass, summary.n_fail, summary.n_warn, summary.n_skip) == (2, 2, 1, 1)
+    assert (summary.n_pass, summary.n_fail, summary.n_warn, summary.n_skip) == (3, 3, 1, 1)
     assert summary.status == "error"
-    assert summary.failed_nodes == ("unique_daily_metrics_ticker", "daily_metrics")
+    assert summary.failed_nodes == (
+        "unique_daily_metrics_ticker",
+        "daily_metrics",
+        "raw.prices",
+    )
 
 
 def test_all_green_is_success(tmp_path: Path) -> None:

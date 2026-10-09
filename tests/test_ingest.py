@@ -87,3 +87,14 @@ def test_main_loads_the_configured_sample(
 
     assert "Loaded 15 rows" in capsys.readouterr().out
     assert _fetch(db, "SELECT count(*) FROM raw.prices") == [(15,)]
+
+
+def test_every_row_carries_the_load_timestamp(tmp_path: Path) -> None:
+    db = tmp_path / "test.duckdb"
+    load_prices(config.SAMPLE_CSV, db)
+    rows = _fetch(
+        db,
+        "SELECT count(DISTINCT loaded_at), count(loaded_at), typeof(any_value(loaded_at))"
+        " FROM raw.prices",
+    )
+    assert rows == [(1, 15, "TIMESTAMP WITH TIME ZONE")]

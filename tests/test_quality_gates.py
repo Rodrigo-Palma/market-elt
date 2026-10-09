@@ -74,3 +74,21 @@ def test_raising_the_tolerance_quarantines_instead_of_failing(tmp_path: Path) ->
 def test_type_violation_never_reaches_dbt(tmp_path: Path) -> None:
     with pytest.raises(ContractViolationError, match="close"):
         load_prices(FIXTURES / "bad_type.csv", tmp_path / "gate.duckdb")
+
+
+@pytest.mark.parametrize(("age_hours", "fails"), [(1, False), (96, True)])
+def test_source_freshness_errors_on_a_stale_load(
+    tmp_path: Path, age_hours: int, fails: bool
+) -> None:
+    db = tmp_path / "gate.duckdb"
+    load_prices(FIXTURES.parent.parent / "data" / "sample" / "prices.csv", db)
+    con = duckdb.connect(str(db))
+    try:
+        con.execute(f"UPDATE raw.prices SET loaded_at = now() - INTERVAL {age_hours} HOUR")
+    finally:
+        con.close()
+
+    run = run_dbt("source freshness", db, tmp_path / "target")
+
+    assert (run.returncode != 0) is fails
+    assert ("raw.prices" in run.summary.failed_nodes) is fails

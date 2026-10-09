@@ -52,6 +52,8 @@ def _node_name(unique_id: str) -> str:
     parts = unique_id.split(".")
     if parts[0] == "unit_test":
         return parts[-1]
+    if parts[0] == "source":
+        return ".".join(parts[2:])
     return parts[2] if len(parts) > 2 else unique_id
 
 
@@ -94,12 +96,15 @@ def run_dbt(
     target_path: Path,
     extra_args: tuple[str, ...] = (),
 ) -> DbtRun:
-    """Run ``dbt <command>`` against ``db_path`` and summarize the result."""
+    """Run ``dbt <command>`` against ``db_path`` and summarize the result.
+
+    ``command`` may hold a subcommand, as in ``"source freshness"``.
+    """
     args = [
         sys.executable,
         "-m",
         "dbt.cli.main",
-        command,
+        *command.split(),
         "--project-dir",
         str(PROJECT_DIR),
         "--profiles-dir",
@@ -108,7 +113,10 @@ def run_dbt(
         str(target_path),
         *extra_args,
     ]
-    run_results = target_path / "run_results.json"
+    # `dbt source freshness` reports to sources.json, every other command to
+    # run_results.json; both share the results/status/unique_id shape.
+    artifact = "sources.json" if command == "source freshness" else "run_results.json"
+    run_results = target_path / artifact
     run_results.unlink(missing_ok=True)
     result = subprocess.run(
         args,
@@ -118,7 +126,7 @@ def run_dbt(
         check=False,
     )
     if not run_results.exists():
-        raise RuntimeError(f"dbt {command} wrote no run_results.json:\n{result.stdout}")
+        raise RuntimeError(f"dbt {command} wrote no {artifact}:\n{result.stdout}")
     return DbtRun(
         returncode=result.returncode,
         stdout=result.stdout,

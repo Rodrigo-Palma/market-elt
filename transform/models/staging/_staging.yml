@@ -7,6 +7,12 @@ sources:
     tables:
       - name: prices
         description: "Daily close prices, one row per (ticker, date) as delivered."
+        config:
+          # Measures when the file was loaded, not how recent the prices are.
+          loaded_at_field: loaded_at
+          freshness:
+            warn_after: {count: 24, period: hour}
+            error_after: {count: 72, period: hour}
         columns:
           - name: date
             data_type: date
@@ -16,6 +22,9 @@ sources:
             data_tests: [not_null]
           - name: close
             data_type: double
+          - name: loaded_at
+            data_type: timestamp with time zone
+            data_tests: [not_null]
 
 models:
   - name: stg_prices

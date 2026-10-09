@@ -37,7 +37,7 @@ def _check_header(csv_path: Path) -> None:
 def _read_csv_sql() -> str:
     columns = ", ".join(f"'{name}': '{dtype}'" for name, dtype in RAW_COLUMNS.items())
     return (
-        "SELECT * FROM read_csv($path, header = true, auto_detect = false,"
+        "SELECT *, now() AS loaded_at FROM read_csv($path, header = true, auto_detect = false,"
         f" columns = {{{columns}}}, dateformat = '{DATE_FORMAT}')"
     )
 
@@ -47,7 +47,9 @@ def load_prices(csv_path: str | Path, db_path: str | Path) -> int:
 
     The replace is a single statement: if the file breaks the contract, the
     previous table is left untouched and :class:`ContractViolationError` is
-    raised. Returns the number of rows loaded.
+    raised. Every row gets the same ``loaded_at`` (the load transaction's
+    timestamp), which ``dbt source freshness`` reads. Returns the number of
+    rows loaded.
     """
     path = Path(csv_path)
     _check_header(path)
