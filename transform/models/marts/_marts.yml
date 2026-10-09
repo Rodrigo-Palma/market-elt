@@ -22,6 +22,43 @@ models:
         description: "Sample stddev of daily simple returns times sqrt(252). Null with < 3 prices."
         data_type: double
 
+  - name: features_daily
+    description: >
+      Point-in-time features per (ticker, price_date) for model training and
+      scoring. As-of semantics: the row for date D uses only prices dated on
+      or before D, so it is exactly what was knowable at the close of D.
+      Windows are the last 20 rows (trading days present in the data), not
+      calendar days, and include the current row. Daily, not annualized.
+    config:
+      contract: {enforced: true}
+    data_tests:
+      - unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [ticker, price_date]
+    columns:
+      - name: ticker
+        data_type: varchar
+        data_tests: [not_null]
+      - name: price_date
+        data_type: date
+        data_tests: [not_null]
+      - name: close
+        data_type: double
+        data_tests: [not_null]
+      - name: return_1d
+        description: "close / previous close - 1. Null on a ticker's first date."
+        data_type: double
+      - name: rolling_vol_20d
+        description: "Sample stddev of return_1d over the trailing 20 rows. Null with < 2 returns."
+        data_type: double
+      - name: rolling_mean_return_20d
+        description: "Mean of return_1d over the trailing 20 rows."
+        data_type: double
+      - name: n_obs_window
+        description: "Non-null returns in the trailing window (0 to 20). Filter on it for a full window."
+        data_type: bigint
+        data_tests: [not_null]
+
 unit_tests:
   - name: daily_metrics_matches_reference
     description: >
