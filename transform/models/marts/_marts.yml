@@ -3,10 +3,21 @@ version: 2
 models:
   - name: daily_metrics
     description: "Per-ticker summary: observations, last close, annualized volatility."
+    config:
+      contract: {enforced: true}
     columns:
       - name: ticker
-        tests: [not_null, unique]
-      - name: last_close
-        tests: [not_null]
+        data_type: varchar
+        data_tests: [not_null, unique]
       - name: observations
-        tests: [not_null]
+        data_type: bigint
+        data_tests: [not_null]
+      - name: last_date
+        data_type: date
+        data_tests: [not_null]
+      - name: last_close
+        data_type: double
+        data_tests: [not_null]
+      - name: annualized_volatility
+        description: "Sample stddev of daily simple returns times sqrt(252). Null with < 3 prices."
+        data_type: double

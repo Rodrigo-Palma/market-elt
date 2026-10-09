@@ -88,3 +88,16 @@ def test_daily_metrics_schema_and_sane_values(transformed_db: Path) -> None:
     }
     assert all(last_close > 0 for last_close, _ in metrics)
     assert all(volatility >= 0 for _, volatility in metrics)
+
+
+def test_every_raw_row_lands_in_exactly_one_staging_model(transformed_db: Path) -> None:
+    con = duckdb.connect(str(transformed_db), read_only=True)
+    try:
+        counts = con.execute(
+            "SELECT (SELECT count(*) FROM raw.prices),"
+            " (SELECT count(*) FROM stg_prices),"
+            " (SELECT count(*) FROM stg_prices_rejected)"
+        ).fetchone()
+    finally:
+        con.close()
+    assert counts == (15, 15, 0)

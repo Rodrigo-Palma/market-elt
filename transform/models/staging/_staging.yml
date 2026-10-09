@@ -3,16 +3,61 @@ version: 2
 sources:
   - name: raw
     schema: raw
+    description: "Loaded by market_elt.ingest against a typed CSV contract."
     tables:
       - name: prices
+        description: "Daily close prices, one row per (ticker, date) as delivered."
+        columns:
+          - name: date
+            data_type: date
+            data_tests: [not_null]
+          - name: ticker
+            data_type: varchar
+            data_tests: [not_null]
+          - name: close
+            data_type: double
 
 models:
   - name: stg_prices
-    description: "Cleaned, typed daily close prices."
+    description: "Typed daily close prices that pass every row-level rule."
+    config:
+      contract: {enforced: true}
+    data_tests:
+      - unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [ticker, price_date]
     columns:
       - name: price_date
-        tests: [not_null]
+        data_type: date
+        data_tests: [not_null]
       - name: ticker
-        tests: [not_null]
+        data_type: varchar
+        data_tests: [not_null]
       - name: close
-        tests: [not_null]
+        data_type: double
+        data_tests: [not_null]
+
+  - name: stg_prices_rejected
+    description: >
+      Raw rows that break a row-level rule, with the reason. Gated by
+      row_count_at_most: any rejected row fails the build unless the
+      max_rejected_rows var raises the tolerance.
+    config:
+      contract: {enforced: true}
+    data_tests:
+      - row_count_at_most:
+          arguments:
+            max_rows: "{{ var('max_rejected_rows') }}"
+    columns:
+      - name: price_date
+        data_type: date
+      - name: ticker
+        data_type: varchar
+      - name: close
+        data_type: double
+      - name: reject_reason
+        data_type: varchar
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [null_close, non_positive_close]

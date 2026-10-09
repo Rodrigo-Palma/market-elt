@@ -13,3 +13,7 @@ models:
       +materialized: view
     marts:
       +materialized: table
+
+vars:
+  # Rows allowed in stg_prices_rejected before the build fails.
+  max_rejected_rows: 0
