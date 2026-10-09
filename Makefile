@@ -1,7 +1,7 @@
 .PHONY: install lint fmt type test build all
 
 install:
-	uv sync --extra dev
+	uv sync --locked --extra dev
 
 lint:
 	uv run ruff check .
