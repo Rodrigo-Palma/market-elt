@@ -6,4 +6,4 @@ select
     cast(upper(trim(ticker)) as varchar) as ticker,
     cast(close as double)                as close
 from {{ source('raw', 'prices') }}
-where {{ price_reject_reason('close') }} is null
+where {{ price_reject_reason('ticker', 'close') }} is null

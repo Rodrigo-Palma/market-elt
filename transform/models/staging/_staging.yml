@@ -38,7 +38,16 @@ models:
     columns:
       - name: price_date
         data_type: date
-        data_tests: [not_null]
+        data_tests:
+          - not_null
+          # Off unless max_price_age_days is set: the bundled sample is a
+          # fixed file, so a recency rule on by default would fail every run.
+          - max_date_at_most_days_old:
+              arguments:
+                max_age_days: "{{ var('max_price_age_days') }}"
+                as_of: "{{ var('as_of_date') }}"
+              config:
+                enabled: "{{ var('max_price_age_days') is not none }}"
       - name: ticker
         data_type: varchar
         data_tests: [not_null]
@@ -69,4 +78,4 @@ models:
         data_tests:
           - accepted_values:
               arguments:
-                values: [null_close, non_positive_close]
+                values: [blank_ticker, null_close, nan_close, infinite_close, non_positive_close]

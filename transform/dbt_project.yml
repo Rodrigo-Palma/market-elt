@@ -2,6 +2,9 @@ name: market_elt
 version: "1.0.0"
 config-version: 2
 
+flags:
+  send_anonymous_usage_stats: false
+
 profile: market_elt
 
 model-paths: ["models"]
@@ -17,3 +20,7 @@ models:
 vars:
   # Rows allowed in stg_prices_rejected before the build fails.
   max_rejected_rows: 0
+  # Latest price_date in stg_prices may be at most this many calendar days
+  # before as_of_date (default current_date). Null turns the check off.
+  max_price_age_days: null
+  as_of_date: null
