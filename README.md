@@ -14,12 +14,17 @@ runs offline with one command.
 **What is proven, not just claimed:**
 
 - Each quality gate is fed the bad input it exists for and is **seen failing
-  on the expected node** (duplicate key, null close, negative close, null
-  ticker, wrong type, wrong header, wrong date format, stale load).
+  on the expected node** (duplicate key, null, NaN, infinite or negative
+  close, blank or null ticker, wrong type, wrong header, wrong date format,
+  stale prices, stale load).
+- Each gate is also broken on purpose, and its test goes red: `make mutate`
+  applies **9 mutations** to a copy of the repo and catches all 9.
 - The volatility math is checked by a dbt unit test against an **independent
   stdlib reference**. Swapping `sqrt(252)` for `sqrt(365)` fails it.
 - The features are **causal**: built on history truncated at T, they match
-  the full build on every date up to T. A centered window fails the test.
+  the full build on every date up to T. A centered window fails the test,
+  and on a random walk that same window buys **7 points of fake accuracy**
+  (57.1% vs 50.2%), which is what the test protects a model from.
 
 [Browse the models, columns, tests and lineage graph](https://rodrigo-palma.github.io/market-elt/) (dbt docs, rebuilt on every push).
 
@@ -41,8 +46,12 @@ Each run prints JSON log lines and ends with a summary like this one, trimmed to
 (from `make pipeline` on the bundled sample):
 
 ```json
-{"event": "run.finished", "rows_loaded": 15, "rows_rejected": 0, "dbt_status": "success", "n_pass": 24, "n_fail": 0, "failed_nodes": []}
+{"event": "run.finished", "rows_loaded": 15, "rows_rejected": 0, "dbt_status": "success", "n_pass": 25, "n_fail": 0, "failed_nodes": []}
 ```
+
+The bundled sample (`data/sample/prices.csv`) holds 15 illustrative prices
+for three B3 tickers. They are not market data (they do not match the actual
+B3 closes for those dates) and only exercise the mechanics.
 
 ## Pipeline
 
@@ -54,7 +63,7 @@ flowchart LR
     stg --> dm[daily_metrics<br/>table, contract]
     stg --> fd[features_daily<br/>table, contract, point-in-time]
     rej -. "row_count_at_most<br/>max_rejected_rows = 0" .-> gate{{build fails}}
-    raw -. "source freshness<br/>warn 24h, error 72h" .-> gate
+    stg -. "reconciles with raw<br/>price recency (opt-in)" .-> gate
 ```
 
 | Model | Grain | Purpose |
@@ -63,7 +72,7 @@ flowchart LR
 | `stg_prices_rejected` | ticker, price_date | The other rows, with `reject_reason`. Any row here fails the build by default |
 | `daily_metrics` | ticker | Observations, last close, annualized volatility |
 | `features_daily` | ticker, price_date | `return_1d`, `rolling_vol_20d`, `rolling_mean_return_20d`, `n_obs_window`, as of the close of each date |
-| `meta.pipeline_runs` | run | run_id, timings, rows loaded and rejected, dbt status and node counts |
+| `meta.pipeline_runs` | run | run_id, timings, rows loaded and rejected, dbt status and node counts. Failed loads (`load_failed`) and dbt crashes (`crashed`) are recorded too |
 
 ## Results
 
@@ -80,28 +89,51 @@ asserts a non-zero exit and the name of the failing node, read from dbt's
 | Same (ticker, date) twice | `unique_combination_of_columns_stg_prices_ticker__price_date` | dbt test |
 | Empty close | `row_count_at_most_stg_prices_rejected__...`, row kept with `null_close` | dbt test |
 | Close of -1.00 | same gate, row kept with `non_positive_close` | dbt test |
+| `nan` or `inf` in close (valid DOUBLE values) | same gate, rows kept with `nan_close` / `infinite_close` | dbt test |
+| Ticker made only of spaces | same gate, row kept with `blank_ticker` | dbt test |
+| A rule that drops rows silently | `assert_staging_reconciles_with_raw`: raw = valid + rejected | dbt test |
 | Empty ticker | `source_not_null_raw_prices_ticker` | dbt source test |
 | `n/a` in close, `06/01/2026` as date, renamed header | `ContractViolationError`, previous table kept | loader |
+| Latest price 4 days before `--as-of`, with `--max-price-age-days 3` | `max_date_at_most_days_old` on `stg_prices` (2 days old passes) | dbt test, opt-in |
 | `loaded_at` 96 hours old | freshness of `raw.prices` (1 hour old passes) | dbt source freshness |
 | Model column type drifts from its contract | contract check, for example `INTEGER` vs `BIGINT` on `observations` | dbt contract |
 
-Each gate was also checked from the other side, once, by mutating the code
-and watching a test go red (recorded in the commit messages):
+Two of those need a caveat. Source freshness reads `loaded_at`, which the
+loader sets to now(), so right after `market-elt run` it cannot fail, and a
+fresh load of months-old prices passes it. It only means something when dbt
+runs on its own schedule, apart from the load, so CI no longer runs it after
+the pipeline. The recency test measures the prices themselves and catches
+that case, but it is off by default because the bundled sample is a fixed
+file; turn it on with `--max-price-age-days N` (and `--as-of` to pin the
+reference date).
 
-| Mutation | What failed |
+Each gate is also checked from the other side. `make mutate`
+([`scripts/mutations.py`](scripts/mutations.py)) copies the repo to a
+temporary directory, checks the target tests pass unmutated, applies one
+mutation at a time and requires the tests to fail with the expected node in
+the output. Last run: 9 of 9 caught. It also runs on demand in the
+`Mutations` workflow.
+
+| Mutation | Caught by |
 |---|---|
-| Drop the `(ticker, price_date)` uniqueness test | duplicate-key case: `dbt build` exited 0 with PASS=15 |
-| `sqrt(365)` instead of `sqrt(252)` | unit test: 0.5461422585 instead of 0.4537949098 |
-| Window `10 preceding and 9 following` | causal invariance test, both cut dates |
-| `cast(count(*) as integer)` in `daily_metrics` | contract mismatch, build ERROR=1 |
+| Drop the `(ticker, price_date)` uniqueness test | duplicate-key gate case |
+| Remove the NaN rule | `nan_close` gate case |
+| Remove the blank-ticker rule | `blank_ticker` gate case |
+| `stg_prices_rejected` drops null closes | `assert_staging_reconciles_with_raw` |
+| `sqrt(365)` instead of `sqrt(252)` | dbt unit test against the stdlib reference |
+| Window `10 preceding and 9 following` | causal invariance test |
+| `cast(count(*) as integer)` in `daily_metrics` | enforced contract |
+| Recency threshold ignored | recency gate cases |
+| dbt exit code ignored when the artifact says success | `nonzero_exit` pipeline test |
 
 ### Sample run
 
 `make pipeline` on the bundled sample (3 tickers x 5 days): 15 rows loaded,
-0 rejected, 24 dbt nodes passed (4 models, 19 data tests, 1 unit test), 0
-failed. Wall time 2.55 to 4.44 s over 3 runs on an Apple M3 Max, of which dbt
-reported 0.45 s of execution. With 5 prices per ticker the volatility rests on
-4 returns: the sample shows the mechanics, not a market estimate.
+0 rejected, 25 dbt nodes passed (4 models, 20 data tests, 1 unit test), 0
+failed. Wall time 2.09 to 2.17 s over 3 runs of `uv run market-elt run` on an
+Apple M3 Max, of which dbt reported 0.34 to 0.35 s of execution. With 5
+prices per ticker the volatility rests on 4 returns: the sample shows the
+mechanics, not a market estimate.
 
 ### Scale (synthetic data)
 
@@ -111,23 +143,51 @@ tickers `SYN0000...`, not market data) and times load plus the full
 
 | Rows (synthetic) | Tickers x days | Load (s) | dbt build wall (s) | dbt build exec (s) | Nodes passed |
 |---:|---:|---:|---:|---:|---:|
-| 10,000 | 10 x 1000 | 0.013 | 2.722 | 0.420 | 24 |
-| 100,000 | 100 x 1000 | 0.042 | 2.448 | 0.465 | 24 |
-| 1,000,000 | 1000 x 1000 | 0.124 | 2.605 | 0.716 | 24 |
+| 10,000 | 10 x 1000 | 0.011 | 1.472 | 0.382 | 25 |
+| 100,000 | 100 x 1000 | 0.039 | 1.503 | 0.411 | 25 |
+| 1,000,000 | 1000 x 1000 | 0.123 | 1.814 | 0.708 | 25 |
+| 10,000,000 | 10000 x 1000 | 0.364 | 3.290 | 2.152 | 25 |
 
 Median of 3 runs on Apple M3 Max, Darwin 27.0.0; python 3.12.13, duckdb 1.5.4,
 dbt-core 1.11.11, dbt-duckdb 1.10.1. Seed 20260101. Raw output in
 [`benchmarks/results.md`](benchmarks/results.md).
 
-Reading it honestly: up to a million rows, dbt start-up (about 2 s) dominates
-the wall time, and execution grows from 0.42 s to 0.72 s. These runs say
-nothing about data that does not fit on one machine.
+Reading it honestly: up to a million rows, dbt's fixed cost (wall minus exec,
+about 1.1 s) dominates. Between 1e6 and 1e7 rows execution overtakes it: at
+1e7 dbt executes for 2.15 s of a 3.29 s build. 1e8 rows was not measured.
+These runs say nothing about data that does not fit on one machine.
+
+Turning off dbt's anonymous usage tracking (`send_anonymous_usage_stats:
+false`) cut the 1e4 build from 2.19 s to 1.61 s (median of 5 runs each, same
+machine and network), which is why this table is faster than the one in
+v0.2.0.
+
+### What point-in-time buys a model
+
+`make leakage` ([`benchmarks/leakage.py`](benchmarks/leakage.py)) builds the
+pipeline on synthetic random walks, where tomorrow's return is independent
+of the past by construction, and fits the same one-parameter rule (sign of
+the 20-row mean return predicts the sign of the next return, direction
+chosen on the train dates) twice: on `rolling_mean_return_20d` from
+`features_daily`, and on a centered 20-row mean, the window the causal test
+rejects. The split is by date, test strictly after train.
+
+| Feature | Rule (fit on train) | Train accuracy | Test accuracy | 95% Wilson | n test |
+|---|---|---:|---:|---:|---:|
+| point_in_time | reversal | 50.29% | 50.18% | 49.77% to 50.58% | 58,798 |
+| leaky | momentum | 56.81% | 57.10% | 56.70% to 57.50% | 58,798 |
+
+200 tickers x 1000 weekdays, seed 20260102. The point-in-time interval
+covers 50%, as it must when there is no signal. The leaky window holds the
+label among its 20 returns, a correlation of about 1/sqrt(20) = 0.22, and
+0.5 + arcsin(0.22)/pi = 57.2% is what it scores. A backtest on that
+feature would report an edge that cannot exist live.
 
 ### Test suite
 
-47 pytest tests, 98% line coverage with a 95% floor enforced in CI. CI also
-runs ruff, mypy (strict on untyped defs), the pipeline, source freshness, and
-the Docker image end to end.
+64 pytest tests, 99% line coverage (98.98%) with a 95% floor enforced in CI.
+CI also runs ruff, mypy (strict on untyped defs), the pipeline and the Docker
+image end to end; the mutation check runs on demand.
 
 ## Design decisions
 
@@ -142,12 +202,15 @@ make lint          # ruff
 make type          # mypy
 make test          # pytest: unit, gates, causal invariance, end to end
 make pipeline      # market-elt run
-make freshness     # dbt source freshness on raw.prices
+make freshness     # dbt source freshness on raw.prices (useful when dbt runs apart from the load)
 make docs          # dbt docs as one static HTML page
 make bench         # scale benchmark on synthetic data
+make leakage       # point-in-time vs leaky feature on synthetic random walks
+make mutate        # break each gate in a temp copy, require its test to fail
 make docker-run    # the pipeline inside the image
 
 uv run market-elt run --csv path/to/prices.csv --max-rejected-rows 5
+uv run market-elt run --csv path/to/prices.csv --max-price-age-days 4
 ```
 
 ## Layout
@@ -156,8 +219,8 @@ uv run market-elt run --csv path/to/prices.csv --max-rejected-rows 5
 src/market_elt/      loader with the CSV contract, dbt runner, pipeline, CLI, JSON logs
 transform/           dbt project: models, contracts, generic tests, unit test, macro
 tests/               pytest, with one broken fixture per quality gate
-scripts/             independent reference for the daily_metrics unit test
-benchmarks/          synthetic scale benchmark and its results
+scripts/             reference for the daily_metrics unit test, mutation check
+benchmarks/          synthetic scale and leakage benchmarks, with their results
 docs/adr/            architecture decision records
 ```
 
@@ -167,5 +230,4 @@ MIT, see [LICENSE](LICENSE).
 
 ## Author
 
-**Rodrigo Stachlewski Palma**, Senior Data & AI Engineer.
-[LinkedIn](https://linkedin.com/in/rodrigospalma/) · [GitHub](https://github.com/Rodrigo-Palma)
+Rodrigo Stachlewski Palma ([GitHub](https://github.com/Rodrigo-Palma))
