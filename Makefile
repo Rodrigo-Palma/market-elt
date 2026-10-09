@@ -1,4 +1,4 @@
-.PHONY: install lint fmt type test pipeline freshness build docs docker-build docker-run bench all
+.PHONY: install lint fmt type test pipeline freshness build docs docker-build docker-run bench leakage mutate all
 
 install:
 	uv sync --locked --extra dev
@@ -36,4 +36,10 @@ docker-run: docker-build
 bench:
 	uv run python benchmarks/scale.py
 
-all: lint type test pipeline freshness
+leakage:
+	uv run python benchmarks/leakage.py
+
+mutate:
+	uv run python scripts/mutations.py
+
+all: lint type test pipeline
