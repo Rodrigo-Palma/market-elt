@@ -2,15 +2,13 @@
 
 from __future__ import annotations
 
-import os
-import subprocess
-import sys
 from pathlib import Path
 
 import duckdb
 import pytest
 
 from market_elt import config
+from market_elt.dbt_runner import run_dbt
 from market_elt.ingest import load_prices
 
 EXPECTED_TICKERS = {"PETR4", "VALE3", "ITUB4"}
@@ -20,25 +18,12 @@ OBSERVATIONS_PER_TICKER = 5
 @pytest.fixture(scope="module")
 def transformed_db(tmp_path_factory: pytest.TempPathFactory) -> Path:
     """Run the full pipeline (load + dbt build) against an isolated DuckDB."""
-    db = tmp_path_factory.mktemp("transform") / "test.duckdb"
+    workdir = tmp_path_factory.mktemp("transform")
+    db = workdir / "test.duckdb"
     load_prices(config.SAMPLE_CSV, db)
-    result = subprocess.run(
-        [
-            sys.executable,
-            "-m",
-            "dbt.cli.main",
-            "build",
-            "--project-dir",
-            str(config.ROOT / "transform"),
-            "--profiles-dir",
-            str(config.ROOT / "transform"),
-        ],
-        env={**os.environ, "MARKET_ELT_DB": str(db)},
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-    assert result.returncode == 0, f"dbt build failed:\n{result.stdout}\n{result.stderr}"
+    run = run_dbt("build", db, workdir / "target")
+    assert run.returncode == 0, f"dbt build failed:\n{run.stdout}"
+    assert run.summary.status == "success"
     return db
 
 
