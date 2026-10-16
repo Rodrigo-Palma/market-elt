@@ -6,6 +6,8 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-10-15
+
 ### Added
 - ADR 0004 and `tests/test_features_incremental.py`: history loaded in three
   stages with an incremental build after each equals one `--full-refresh`
@@ -105,6 +107,8 @@ All notable changes to this project are documented here. The format follows
 - Bundled sample data so `dbt build` runs offline.
 - Tooling: ruff, mypy, pytest, GitHub Actions CI running the full ELT.
 
+[Unreleased]: https://github.com/Rodrigo-Palma/market-elt/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/Rodrigo-Palma/market-elt/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/Rodrigo-Palma/market-elt/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/Rodrigo-Palma/market-elt/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/Rodrigo-Palma/market-elt/releases/tag/v0.1.0
