@@ -3,7 +3,7 @@ name = "market-elt"
 version = "0.4.0"
 description = "A reproducible DuckDB + dbt ELT pipeline over market data, with data-quality tests."
 readme = "README.md"
-requires-python = ">=3.12,<3.14"
+requires-python = ">=3.12,<3.15"
 license = { text = "MIT" }
 authors = [{ name = "Rodrigo Stachlewski Palma" }]
 keywords = ["data-engineering", "dbt", "duckdb", "elt", "analytics-engineering"]
@@ -11,11 +11,15 @@ classifiers = [
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "License :: OSI Approved :: MIT License",
 ]
 dependencies = [
     "duckdb>=1.0",
     "dbt-duckdb>=1.8",
+    # Older mashumaro raises UnserializableField at import on 3.14, which kills dbt.
+    # Unconditional: a 3.14-only marker forks the lock and drags 3.14 to dbt-core 1.8.
+    "mashumaro>=3.17",
 ]
 
 [project.optional-dependencies]

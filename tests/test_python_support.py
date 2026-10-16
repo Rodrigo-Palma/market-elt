@@ -30,7 +30,7 @@ def _ci_matrix_versions() -> list[str]:
 
 
 def test_ci_tests_every_classified_version() -> None:
-    assert _classifier_versions() == ["3.12", "3.13"]
+    assert _classifier_versions() == ["3.12", "3.13", "3.14"]
     assert _ci_matrix_versions() == _classifier_versions()
 
 
@@ -49,3 +49,8 @@ def test_readme_badge_lists_the_tested_versions() -> None:
 
 def test_running_interpreter_is_in_the_supported_range() -> None:
     assert f"{sys.version_info.major}.{sys.version_info.minor}" in _classifier_versions()
+
+
+def test_python_314_requires_a_mashumaro_that_imports_on_it() -> None:
+    # mashumaro <3.17 raises UnserializableField at import on 3.14, which kills dbt.
+    assert "mashumaro>=3.17" in _pyproject()["project"]["dependencies"]

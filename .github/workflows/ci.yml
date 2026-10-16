@@ -20,8 +20,8 @@ jobs:
       fail-fast: false
       matrix:
         # Keep in sync with requires-python and the classifiers (tests/test_python_support.py).
-        # 3.14 is excluded: dbt-core 1.11 does not import on it (mashumaro UnserializableField).
-        python-version: ["3.12", "3.13"]
+        # 3.14 needs mashumaro>=3.17 (older releases fail at import), pinned in pyproject.toml.
+        python-version: ["3.12", "3.13", "3.14"]
     env:
       MARKET_ELT_DB: ${{ github.workspace }}/market_elt.duckdb
       UV_PYTHON: ${{ matrix.python-version }}

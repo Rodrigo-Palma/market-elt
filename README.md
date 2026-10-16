@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/Rodrigo-Palma/market-elt/actions/workflows/ci.yml/badge.svg)](https://github.com/Rodrigo-Palma/market-elt/actions/workflows/ci.yml)
 [![Docs](https://github.com/Rodrigo-Palma/market-elt/actions/workflows/docs.yml/badge.svg)](https://rodrigo-palma.github.io/market-elt/)
-[![Python](https://img.shields.io/badge/python-3.12%20%7C%203.13-blue.svg)](https://www.python.org/)
+[![Python](https://img.shields.io/badge/python-3.12%20%7C%203.13%20%7C%203.14-blue.svg)](https://www.python.org/)
 [![dbt](https://img.shields.io/badge/dbt-duckdb-FF694B.svg)](https://github.com/duckdb/dbt-duckdb)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
