@@ -18,13 +18,17 @@ runs offline with one command.
   close, blank or null ticker, wrong type, wrong header, wrong date format,
   stale prices, stale load).
 - Each gate is also broken on purpose, and its test goes red: `make mutate`
-  applies **9 mutations** to a copy of the repo and catches all 9.
+  applies **11 mutations** to a copy of the repo and catches all 11.
 - The volatility math is checked by a dbt unit test against an **independent
   stdlib reference**. Swapping `sqrt(252)` for `sqrt(365)` fails it.
 - The features are **causal**: built on history truncated at T, they match
   the full build on every date up to T. A centered window fails the test,
   and on a random walk that same window buys **7 points of fake accuracy**
   (57.1% vs 50.2%), which is what the test protects a model from.
+- `features_daily` is **incremental** and proven equal to a full refresh:
+  history loaded in three stages, with trading-day gaps at the batch edges,
+  gives the same rows as one `--full-refresh` build (both `EXCEPT ALL`s
+  empty). A lookback one row short fails it.
 
 [Browse the models, columns, tests and lineage graph](https://rodrigo-palma.github.io/market-elt/) (dbt docs, rebuilt on every push).
 
@@ -61,7 +65,7 @@ flowchart LR
     raw --> stg[stg_prices<br/>view, contract]
     raw --> rej[stg_prices_rejected<br/>view, contract, with reason]
     stg --> dm[daily_metrics<br/>table, contract]
-    stg --> fd[features_daily<br/>table, contract, point-in-time]
+    stg --> fd[features_daily<br/>incremental, contract, point-in-time]
     rej -. "row_count_at_most<br/>max_rejected_rows = 0" .-> gate{{build fails}}
     stg -. "reconciles with raw<br/>price recency (opt-in)" .-> gate
 ```
@@ -111,7 +115,7 @@ Each gate is also checked from the other side. `make mutate`
 ([`scripts/mutations.py`](scripts/mutations.py)) copies the repo to a
 temporary directory, checks the target tests pass unmutated, applies one
 mutation at a time and requires the tests to fail with the expected node in
-the output. Last run: 9 of 9 caught. It also runs on demand in the
+the output. Last run: 11 of 11 caught. It also runs on demand in the
 `Mutations` workflow.
 
 | Mutation | Caught by |
@@ -122,6 +126,8 @@ the output. Last run: 9 of 9 caught. It also runs on demand in the
 | `stg_prices_rejected` drops null closes | `assert_staging_reconciles_with_raw` |
 | `sqrt(365)` instead of `sqrt(252)` | dbt unit test against the stdlib reference |
 | Window `10 preceding and 9 following` | causal invariance test |
+| Incremental lookback of 19 rows instead of 20 | incremental vs full-refresh equivalence test |
+| Incremental run writes back its context rows | incremental vs full-refresh equivalence test |
 | `cast(count(*) as integer)` in `daily_metrics` | enforced contract |
 | Recency threshold ignored | recency gate cases |
 | dbt exit code ignored when the artifact says success | `nonzero_exit` pipeline test |
@@ -185,7 +191,7 @@ feature would report an edge that cannot exist live.
 
 ### Test suite
 
-64 pytest tests, 99% line coverage (98.98%) with a 95% floor enforced in CI.
+77 pytest tests, 99% line coverage (99.02%) with a 95% floor enforced in CI.
 CI also runs ruff, mypy (strict on untyped defs), the pipeline and the Docker
 image end to end; the mutation check runs on demand.
 
@@ -194,6 +200,7 @@ image end to end; the mutation check runs on demand.
 - [ADR 0001](docs/adr/0001-duckdb-local-warehouse.md): DuckDB as a local, file-based warehouse
 - [ADR 0002](docs/adr/0002-contracts-and-explicit-rejection.md): typed contracts at every boundary, and explicit rejection instead of silent filters
 - [ADR 0003](docs/adr/0003-point-in-time-features.md): point-in-time features with a causal invariance test
+- [ADR 0004](docs/adr/0004-incremental-features-over-replaced-raw.md): incremental `features_daily` over a replaced raw table, proven equal to a full refresh
 
 ## Commands
 

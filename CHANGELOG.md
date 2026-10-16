@@ -6,7 +6,19 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+- ADR 0004 and `tests/test_features_incremental.py`: history loaded in three
+  stages with an incremental build after each equals one `--full-refresh`
+  build (both `EXCEPT ALL`s empty, same row count), on 5 synthetic tickers
+  with trading-day gaps at the stage edges. Two new mutations (lookback of 19,
+  context rows written back) are caught by it; `make mutate` is now 11 of 11.
+
 ### Changed
+- `features_daily` is incremental (`delete+insert` on `[ticker, price_date]`).
+  Each run reads the replaced `raw.prices` and computes only the dates after
+  each ticker's last loaded one, with `features_lookback_rows` (20) earlier
+  rows as window context. Rows already loaded are never revised: a source
+  that corrects past prices needs `dbt build --full-refresh`.
 - Supported Python is now `>=3.12,<3.14`, and CI runs the full gate
   (lint, format, mypy, pytest, `market-elt run`) on 3.12 and 3.13. The old
   `>=3.12` promised 3.14, where dbt-core 1.11 fails to import (mashumaro
