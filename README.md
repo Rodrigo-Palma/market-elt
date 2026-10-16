@@ -136,8 +136,9 @@ the output. Last run: 11 of 11 caught. It also runs on demand in the
 
 `make pipeline` on the bundled sample (3 tickers x 5 days): 15 rows loaded,
 0 rejected, 25 dbt nodes passed (4 models, 20 data tests, 1 unit test), 0
-failed. Wall time 2.09 to 2.17 s over 3 runs of `uv run market-elt run` on an
-Apple M3 Max, of which dbt reported 0.34 to 0.35 s of execution. With 5
+failed. Wall time 1.62 to 1.64 s over 3 runs of `uv run market-elt run` on an
+Apple M3 Max (python 3.12.13, duckdb 1.5.6, dbt-core 1.12.6, dbt-duckdb
+1.11.0), of which dbt reported 0.38 to 0.39 s of execution. With 5
 prices per ticker the volatility rests on 4 returns: the sample shows the
 mechanics, not a market estimate.
 
@@ -149,18 +150,18 @@ tickers `SYN0000...`, not market data) and times load plus the full
 
 | Rows (synthetic) | Tickers x days | Load (s) | dbt build wall (s) | dbt build exec (s) | Nodes passed |
 |---:|---:|---:|---:|---:|---:|
-| 10,000 | 10 x 1000 | 0.011 | 1.472 | 0.382 | 25 |
-| 100,000 | 100 x 1000 | 0.039 | 1.503 | 0.411 | 25 |
-| 1,000,000 | 1000 x 1000 | 0.123 | 1.814 | 0.708 | 25 |
-| 10,000,000 | 10000 x 1000 | 0.364 | 3.290 | 2.152 | 25 |
+| 10,000 | 10 x 1000 | 0.012 | 1.516 | 0.365 | 25 |
+| 100,000 | 100 x 1000 | 0.042 | 1.609 | 0.414 | 25 |
+| 1,000,000 | 1000 x 1000 | 0.136 | 1.855 | 0.695 | 25 |
+| 10,000,000 | 10000 x 1000 | 0.410 | 3.196 | 1.955 | 25 |
 
-Median of 3 runs on Apple M3 Max, Darwin 27.0.0; python 3.12.13, duckdb 1.5.4,
-dbt-core 1.11.11, dbt-duckdb 1.10.1. Seed 20260101. Raw output in
+Median of 3 runs on Apple M3 Max, Darwin 27.0.0; python 3.12.13, duckdb 1.5.6,
+dbt-core 1.12.6, dbt-duckdb 1.11.0. Seed 20260101. Raw output in
 [`benchmarks/results.md`](benchmarks/results.md).
 
 Reading it honestly: up to a million rows, dbt's fixed cost (wall minus exec,
-about 1.1 s) dominates. Between 1e6 and 1e7 rows execution overtakes it: at
-1e7 dbt executes for 2.15 s of a 3.29 s build. 1e8 rows was not measured.
+about 1.2 s) dominates. Between 1e6 and 1e7 rows execution overtakes it: at
+1e7 dbt executes for 1.96 s of a 3.20 s build. 1e8 rows was not measured.
 These runs say nothing about data that does not fit on one machine.
 
 Turning off dbt's anonymous usage tracking (`send_anonymous_usage_stats:
