@@ -27,9 +27,23 @@ All notable changes to this project are documented here. The format follows
   v0.15.18), and a test keeps the two equal.
 - `make lint` also runs `ruff format --check`, as CI does, and CONTRIBUTING
   installs with `uv sync --locked`.
+- The Docker image no longer gives the runtime user ownership of the code
+  and the venv: `/app` stays root-owned and `elt` writes only `/app/out`,
+  `transform/target` and `transform/logs`, so a compromised process cannot
+  rewrite the interpreter or installed packages.
+- Every `actions/checkout` sets `persist-credentials: false`; no job pushes,
+  so the `GITHUB_TOKEN` no longer sits in `.git/config` while third-party
+  code runs.
 - README and `benchmarks/results.md` timings re-measured on that stack
   (python 3.12.13, dbt-core 1.12.6): sample run 1.62 to 1.64 s wall, 0.38 to
   0.39 s of dbt execution; at 1e7 synthetic rows the build takes 3.20 s.
+
+### Security
+- Locked sqlparse 0.6.0 (from 0.5.5) and urllib3 2.8.0 (from 2.7.0), both in
+  the image, past their published DoS advisories; virtualenv 21.14.8 (from
+  21.5.1, dev only, via pre-commit) past GHSA-p58f-9548-mpm2 and
+  GHSA-94p9-xgh2-xp45. `tests/test_hardening.py` guards these floors, the
+  checkout setting and the image's write ownership.
 
 ## [0.4.0] - 2026-10-16
 

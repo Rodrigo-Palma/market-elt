@@ -16,10 +16,14 @@ RUN uv sync --locked --no-dev
 FROM python:3.13-slim-bookworm@sha256:a1165e272e578941b84abc79e4ab38a0305cd12803a5c4247979ac7655f4d641
 RUN useradd --create-home --uid 1000 elt
 WORKDIR /app
-COPY --from=builder --chown=elt:elt /app /app
-COPY --chown=elt:elt transform ./transform
-COPY --chown=elt:elt data ./data
-RUN mkdir -p /app/out && chown elt:elt /app/out
+# Code, venv and data stay root-owned so a compromised process cannot rewrite
+# the interpreter or packages; elt writes only the database and dbt's
+# target and log directories.
+COPY --from=builder /app /app
+COPY transform ./transform
+COPY data ./data
+RUN mkdir -p /app/out /app/transform/target /app/transform/logs \
+    && chown elt:elt /app/out /app/transform/target /app/transform/logs
 USER elt
 ENV PATH="/app/.venv/bin:${PATH}" \
     MARKET_ELT_DB=/app/out/market_elt.duckdb
