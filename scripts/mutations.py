@@ -100,6 +100,22 @@ MUTATIONS: Final[tuple[Mutation, ...]] = (
         expect="test_features_up_to_t_ignore_rows_after_t",
     ),
     Mutation(
+        name="incremental lookback one row short (19 instead of 20)",
+        path="transform/dbt_project.yml",
+        old="  features_lookback_rows: 20\n",
+        new="  features_lookback_rows: 19\n",
+        tests=("tests/test_features_incremental.py",),
+        expect="test_incremental_minus_full_refresh_is_empty",
+    ),
+    Mutation(
+        name="incremental rewrites its context rows with cut windows",
+        path="transform/models/marts/features_daily.sql",
+        old="where loaded_until is null or price_date > loaded_until",
+        new="where true",
+        tests=("tests/test_features_incremental.py",),
+        expect="test_incremental_minus_full_refresh_is_empty",
+    ),
+    Mutation(
         name="observations cast to integer against a bigint contract",
         path="transform/models/marts/daily_metrics.sql",
         old="    count(*)                                            as observations,",

@@ -1,7 +1,8 @@
 """One idempotent pipeline run: load, dbt build, and a row in meta.pipeline_runs.
 
-Re-running is safe: the load replaces ``raw.prices`` and dbt rebuilds every
-model, so only ``meta.pipeline_runs`` grows, by exactly one row per run.
+Re-running is safe: the load replaces ``raw.prices``, dbt rebuilds every
+model but ``features_daily``, which only adds dates it does not hold yet
+(ADR 0004), so only ``meta.pipeline_runs`` grows, by exactly one row per run.
 """
 
 from __future__ import annotations

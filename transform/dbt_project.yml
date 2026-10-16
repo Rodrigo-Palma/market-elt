@@ -24,3 +24,7 @@ vars:
   # before as_of_date (default current_date). Null turns the check off.
   max_price_age_days: null
   as_of_date: null
+  # Rows per ticker that an incremental features_daily run reads from before
+  # its last loaded date. The first new date needs 20: 19 for the
+  # `19 preceding` window and 1 for the lag() of the oldest return in it.
+  features_lookback_rows: 20
