@@ -6,6 +6,12 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Changed
+- Supported Python is now `>=3.12,<3.14`, and CI runs the full gate
+  (lint, format, mypy, pytest, `market-elt run`) on 3.12 and 3.13. The old
+  `>=3.12` promised 3.14, where dbt-core 1.11 fails to import (mashumaro
+  `UnserializableField`). The Docker image stays on 3.12.
+
 ### Fixed
 - A dbt crash that left no artifact was recorded as `dbt.crashed` with only
   dbt's stdout, so a Python traceback from a dependency (e.g. mashumaro's
