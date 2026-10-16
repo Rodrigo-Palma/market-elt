@@ -3,12 +3,14 @@ name = "market-elt"
 version = "0.3.0"
 description = "A reproducible DuckDB + dbt ELT pipeline over market data, with data-quality tests."
 readme = "README.md"
-requires-python = ">=3.12"
+requires-python = ">=3.12,<3.14"
 license = { text = "MIT" }
 authors = [{ name = "Rodrigo Stachlewski Palma" }]
 keywords = ["data-engineering", "dbt", "duckdb", "elt", "analytics-engineering"]
 classifiers = [
     "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
     "License :: OSI Approved :: MIT License",
 ]
 dependencies = [
