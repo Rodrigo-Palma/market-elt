@@ -5,7 +5,7 @@ Thanks for your interest in market-elt.
 ## Setup
 
 ```bash
-uv sync --extra dev
+uv sync --locked --extra dev
 uv run pre-commit install
 ```
 
@@ -13,7 +13,7 @@ uv run pre-commit install
 
 1. Branch from `main`.
 2. Make your change with tests (pytest for Python, dbt tests for models).
-3. Run `make all` (lint, types, tests, ELT); it must pass. If you touch a
+3. Run `make all` (lint, format check, types, tests, ELT); it must pass. If you touch a
    gate, also run `make mutate`.
 4. Open a PR; CI must be green.
 
