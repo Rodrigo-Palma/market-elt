@@ -1,15 +1,26 @@
 version: 2
 updates:
-  - package-ecosystem: "pip"
+  # "uv" reads uv.lock; the "pip" ecosystem only saw the pyproject.toml ranges.
+  - package-ecosystem: "uv"
     directory: "/"
     schedule:
       interval: "weekly"
     open-pull-requests-limit: 5
+    groups:
+      python:
+        patterns: ["*"]
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
       interval: "weekly"
+    groups:
+      actions:
+        patterns: ["*"]
   - package-ecosystem: "docker"
     directory: "/"
     schedule:
       interval: "weekly"
+    ignore:
+      # dbt-core 1.11 does not import on 3.14 (mashumaro UnserializableField).
+      - dependency-name: "python"
+        versions: [">=3.14"]
