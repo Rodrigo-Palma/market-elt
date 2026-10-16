@@ -7,11 +7,13 @@ asserts that the build fails on the expected node, read from run_results.json.
 
 from __future__ import annotations
 
+import shutil
 from pathlib import Path
 
 import duckdb
 import pytest
 
+from market_elt import dbt_runner
 from market_elt.dbt_runner import DbtRun, run_dbt
 from market_elt.ingest import ContractViolationError, load_prices
 
@@ -166,3 +168,28 @@ def test_source_freshness_errors_on_a_stale_load(
 
     assert (run.returncode != 0) is fails
     assert ("raw.prices" in run.summary.failed_nodes) is fails
+
+
+OBSERVATIONS_LINE = "    count(*)                                            as observations,"
+
+
+def test_contract_fails_the_model_whose_column_type_drifts(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    project = tmp_path / "transform"
+    shutil.copytree(
+        dbt_runner.PROJECT_DIR, project, ignore=shutil.ignore_patterns("target", "logs")
+    )
+    model = project / "models" / "marts" / "daily_metrics.sql"
+    sql = model.read_text()
+    assert OBSERVATIONS_LINE in sql
+    model.write_text(
+        sql.replace(OBSERVATIONS_LINE, "    cast(count(*) as integer) as observations,")
+    )
+    monkeypatch.setattr(dbt_runner, "PROJECT_DIR", project)
+
+    run, _ = _build(SAMPLE_CSV, tmp_path)
+
+    assert run.returncode != 0
+    assert run.summary.failed_nodes == ("daily_metrics",)
+    assert "contract" in run.stdout.lower()
