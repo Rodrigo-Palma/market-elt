@@ -32,9 +32,13 @@ CREATE TABLE IF NOT EXISTS meta.pipeline_runs (
     n_fail        INTEGER NOT NULL,
     n_warn        INTEGER NOT NULL,
     n_skip        INTEGER NOT NULL,
-    failed_nodes  VARCHAR[] NOT NULL
+    failed_nodes  VARCHAR[] NOT NULL,
+    error         VARCHAR
 )
 """
+
+# Tables created before the ``error`` column existed gain it in place.
+RUNS_MIGRATION: Final = "ALTER TABLE meta.pipeline_runs ADD COLUMN IF NOT EXISTS error VARCHAR"
 
 LOAD_FAILED: Final = "load_failed"
 DBT_CRASHED: Final = "crashed"
@@ -57,6 +61,7 @@ class PipelineRun:
     n_warn: int
     n_skip: int
     failed_nodes: tuple[str, ...]
+    error: str | None = None
 
     @property
     def succeeded(self) -> bool:
@@ -92,6 +97,7 @@ def record_run(db_path: Path, run: PipelineRun) -> None:
     try:
         con.execute("CREATE SCHEMA IF NOT EXISTS meta")
         con.execute(RUNS_DDL)
+        con.execute(RUNS_MIGRATION)
         con.execute(f"INSERT INTO meta.pipeline_runs ({columns}) VALUES ({placeholders})", record)
     finally:
         con.close()
@@ -105,10 +111,9 @@ def _dbt_status(dbt: DbtRun) -> str:
 
 
 def _record_failure(db_path: Path, run: PipelineRun, event: str, exc: Exception) -> None:
-    record_run(db_path, run)
-    get_logger().error(
-        event, extra={"fields": {"run_id": run.run_id, "error": f"{type(exc).__name__}: {exc}"}}
-    )
+    failed = replace(run, error=f"{type(exc).__name__}: {exc}")
+    record_run(db_path, failed)
+    get_logger().error(event, extra={"fields": {"run_id": failed.run_id, "error": failed.error}})
 
 
 def run_pipeline(

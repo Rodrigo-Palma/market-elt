@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 import json
+import subprocess
 from pathlib import Path
 
 import pytest
 
-from market_elt.dbt_runner import DbtSummary, parse_run_results, run_dbt
+from market_elt import dbt_runner
+from market_elt.dbt_runner import STDERR_TAIL_LINES, DbtSummary, parse_run_results, run_dbt
 
 
 def _write(tmp_path: Path, results: list[dict[str, str]]) -> Path:
@@ -72,3 +74,39 @@ def test_missing_file_is_reported(tmp_path: Path) -> None:
 def test_run_without_artifact_raises(tmp_path: Path) -> None:
     with pytest.raises(RuntimeError, match=r"no run_results\.json"):
         run_dbt("not-a-dbt-command", tmp_path / "x.duckdb", tmp_path / "target")
+
+
+def _crash_with(monkeypatch: pytest.MonkeyPatch, stdout: str, stderr: str) -> None:
+    """Make dbt exit 2 with the given streams and no artifact."""
+
+    def fake_run(args: list[str], **_: object) -> subprocess.CompletedProcess[str]:
+        return subprocess.CompletedProcess(args, 2, stdout=stdout, stderr=stderr)
+
+    monkeypatch.setattr(dbt_runner.subprocess, "run", fake_run)
+
+
+def test_crash_message_carries_the_stderr(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    stderr = "Traceback (most recent call last):\nmashumaro.exceptions.UnserializableField: x\n"
+    _crash_with(monkeypatch, stdout="", stderr=stderr)
+
+    with pytest.raises(RuntimeError) as info:
+        run_dbt("build", tmp_path / "x.duckdb", tmp_path / "target")
+
+    assert "mashumaro.exceptions.UnserializableField: x" in str(info.value)
+    assert "no run_results.json" in str(info.value)
+
+
+def test_crash_message_keeps_stdout_and_only_the_stderr_tail(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    lines = [f"stderr line {i}" for i in range(STDERR_TAIL_LINES + 10)]
+    _crash_with(monkeypatch, stdout="Encountered an error", stderr="\n".join(lines))
+
+    with pytest.raises(RuntimeError) as info:
+        run_dbt("build", tmp_path / "x.duckdb", tmp_path / "target")
+
+    message = str(info.value)
+    assert "Encountered an error" in message
+    assert all(line in message for line in lines[-STDERR_TAIL_LINES:])
+    assert "stderr line 9\n" not in message
+    assert "10 earlier stderr lines omitted" in message

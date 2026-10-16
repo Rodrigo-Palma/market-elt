@@ -4,12 +4,13 @@ from __future__ import annotations
 
 import json
 import logging
+import subprocess
 from pathlib import Path
 
 import duckdb
 import pytest
 
-from market_elt import config, pipeline
+from market_elt import config, dbt_runner, pipeline
 from market_elt.cli import main
 from market_elt.dbt_runner import DbtRun, DbtSummary
 from market_elt.ingest import ContractViolationError
@@ -88,6 +89,40 @@ def test_dbt_crash_without_artifact_is_recorded_then_raised(tmp_path: Path) -> N
     assert _fetch(
         db, "SELECT dbt_status, rows_loaded, rows_rejected, n_pass FROM meta.pipeline_runs"
     ) == [("crashed", 15, None, 0)]
+
+
+def test_dbt_crash_records_and_logs_the_stderr(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    cause = "mashumaro.exceptions.UnserializableField: Field 'x' is not serializable"
+
+    def fake_run(args: list[str], **_: object) -> subprocess.CompletedProcess[str]:
+        return subprocess.CompletedProcess(args, 1, stdout="", stderr=f"Traceback\n{cause}\n")
+
+    monkeypatch.setattr(dbt_runner.subprocess, "run", fake_run)
+    db = tmp_path / "pipe.duckdb"
+    with caplog.at_level(logging.ERROR, logger="market_elt"), pytest.raises(RuntimeError):
+        run_pipeline(config.SAMPLE_CSV, db, tmp_path / "target")
+
+    [(status, error)] = _fetch(db, "SELECT dbt_status, error FROM meta.pipeline_runs")
+    assert status == "crashed"
+    assert cause in str(error)
+    [crashed] = [r for r in caplog.records if r.getMessage() == "dbt.crashed"]
+    assert cause in json.loads(JsonFormatter().format(crashed))["error"]
+
+
+def test_runs_table_from_an_older_release_gains_the_error_column(tmp_path: Path) -> None:
+    db = tmp_path / "old.duckdb"
+    old_ddl = pipeline.RUNS_DDL.replace(",\n    error         VARCHAR", "")
+    assert old_ddl != pipeline.RUNS_DDL
+    con = duckdb.connect(str(db))
+    con.execute("CREATE SCHEMA meta")
+    con.execute(old_ddl)
+    con.close()
+
+    run_pipeline(config.SAMPLE_CSV, db, tmp_path / "target")
+
+    assert _fetch(db, "SELECT dbt_status, error FROM meta.pipeline_runs") == [("success", None)]
 
 
 def test_nonzero_dbt_exit_is_not_a_success(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

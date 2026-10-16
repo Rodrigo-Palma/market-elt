@@ -19,6 +19,10 @@ from market_elt import config
 
 PROJECT_DIR: Final = config.ROOT / "transform"
 
+# How much of dbt's stderr a crash message carries. A Python traceback from a
+# dependency fits; a runaway log does not bloat meta.pipeline_runs.
+STDERR_TAIL_LINES: Final = 50
+
 _PASS: Final = frozenset({"success", "pass"})
 _FAIL: Final = frozenset({"fail", "error", "runtime error"})
 _WARN: Final = frozenset({"warn"})
@@ -90,6 +94,23 @@ def parse_run_results(path: Path) -> DbtSummary:
     )
 
 
+def _stderr_tail(stderr: str) -> str:
+    lines = stderr.rstrip("\n").splitlines()
+    omitted = len(lines) - STDERR_TAIL_LINES
+    if omitted <= 0:
+        return "\n".join(lines)
+    return "\n".join([f"[{omitted} earlier stderr lines omitted]", *lines[-STDERR_TAIL_LINES:]])
+
+
+def _crash_message(command: str, artifact: str, stdout: str, stderr: str) -> str:
+    """Why dbt left no artifact: its stdout and the tail of its stderr."""
+    return (
+        f"dbt {command} wrote no {artifact}:\n"
+        f"--- stdout ---\n{stdout}\n"
+        f"--- stderr (last {STDERR_TAIL_LINES} lines) ---\n{_stderr_tail(stderr)}"
+    )
+
+
 def run_dbt(
     command: str,
     db_path: Path,
@@ -126,7 +147,7 @@ def run_dbt(
         check=False,
     )
     if not run_results.exists():
-        raise RuntimeError(f"dbt {command} wrote no {artifact}:\n{result.stdout}")
+        raise RuntimeError(_crash_message(command, artifact, result.stdout, result.stderr))
     return DbtRun(
         returncode=result.returncode,
         stdout=result.stdout,

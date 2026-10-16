@@ -4,6 +4,16 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/) and the project adheres to
 [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Fixed
+- A dbt crash that left no artifact was recorded as `dbt.crashed` with only
+  dbt's stdout, so a Python traceback from a dependency (e.g. mashumaro's
+  `UnserializableField`) was lost. The error now carries the stdout and the
+  last `STDERR_TAIL_LINES` (50) lines of stderr, and `load_failed`/`crashed`
+  rows keep it in a new `meta.pipeline_runs.error` column; tables from
+  earlier releases gain the column in place.
+
 ## [0.3.0] - 2026-10-09
 
 ### Fixed

@@ -72,7 +72,7 @@ flowchart LR
 | `stg_prices_rejected` | ticker, price_date | The other rows, with `reject_reason`. Any row here fails the build by default |
 | `daily_metrics` | ticker | Observations, last close, annualized volatility |
 | `features_daily` | ticker, price_date | `return_1d`, `rolling_vol_20d`, `rolling_mean_return_20d`, `n_obs_window`, as of the close of each date |
-| `meta.pipeline_runs` | run | run_id, timings, rows loaded and rejected, dbt status and node counts. Failed loads (`load_failed`) and dbt crashes (`crashed`) are recorded too |
+| `meta.pipeline_runs` | run | run_id, timings, rows loaded and rejected, dbt status and node counts. Failed loads (`load_failed`) and dbt crashes (`crashed`) are recorded too, with the cause in `error` (for a crash, dbt's stdout and the last 50 lines of its stderr) |
 
 ## Results
 
