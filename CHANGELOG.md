@@ -6,6 +6,11 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Changed
+- The Docker image runs on Python 3.13, the newest minor in the CI matrix.
+- Dependencies: duckdb 1.5.6, dbt-duckdb 1.11.0, ruff 0.17.0, mypy 2.4.0,
+  pre-commit 4.7.0.
+
 ## [0.4.0] - 2026-10-16
 
 ### Added
