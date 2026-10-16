@@ -6,10 +6,21 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+- Python 3.14: `requires-python` is `>=3.12,<3.15` and CI runs the full gate
+  on 3.12, 3.13 and 3.14. What broke 3.14 in 0.4.0 was mashumaro below 3.17
+  (`UnserializableField` at import), not dbt-core itself; dbt-core 1.11 caps
+  mashumaro at `<3.15`, so it cannot run there. A direct `mashumaro>=3.17`
+  floor keeps one lock resolution for every Python (a 3.14-only marker
+  forked the lock and pulled dbt-core 1.8.10 on 3.14).
+
 ### Changed
-- The Docker image runs on Python 3.13, the newest minor in the CI matrix.
-- Dependencies: duckdb 1.5.6, dbt-duckdb 1.11.0, ruff 0.17.0, mypy 2.4.0,
-  pre-commit 4.7.0.
+- The Docker image runs on Python 3.13.
+- Dependencies: duckdb 1.5.6, dbt-duckdb 1.11.0, mashumaro 3.17, ruff 0.17.0,
+  mypy 2.4.0, pre-commit 4.7.0.
+- README and `benchmarks/results.md` timings re-measured on that stack
+  (python 3.12.13, dbt-core 1.12.6): sample run 1.62 to 1.64 s wall, 0.38 to
+  0.39 s of dbt execution; at 1e7 synthetic rows the build takes 3.20 s.
 
 ## [0.4.0] - 2026-10-16
 
