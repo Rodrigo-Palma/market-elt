@@ -192,7 +192,7 @@ feature would report an edge that cannot exist live.
 
 ### Test suite
 
-80 pytest tests, 99% line coverage (99.02%) with a 95% floor enforced in CI.
+84 pytest tests, 99% line coverage (99.02%) with a 95% floor enforced in CI.
 CI also runs ruff, mypy (strict on untyped defs), the pipeline and the Docker
 image end to end; the mutation check runs on demand.
 
