@@ -20,14 +20,16 @@ temporary directory, so tests never share state.
 - `market-elt run` and the whole test suite need nothing beyond `uv sync`.
   CI runs the full pipeline, the negative gates and the Docker image on every
   push.
-- At the sizes measured in `benchmarks/results.md` (up to 1e6 rows), dbt's own
-  execution stays under a second and the wall time is dominated by dbt
-  start-up. The numbers say nothing about sizes that do not fit on one machine.
+- At the sizes measured in `benchmarks/results.md`, dbt's own execution stays
+  under a second up to 1e6 rows and the wall time is dominated by dbt
+  start-up; at 1e7 rows execution takes about 2 s. The numbers say nothing about sizes that do not fit on one machine.
 - One writer at a time. That fits a batch pipeline that runs end to end, not
   concurrent loaders. The load and dbt never hold the file at the same time.
 - Moving to a server warehouse means a new dbt profile and replacing
-  `read_csv` in the loader. The models use standard SQL window functions, with
-  two DuckDB-specific functions (`arg_max`, the `read_csv` table function).
+  `read_csv` in the loader. The models use standard SQL window functions plus
+  DuckDB-specific SQL that would need porting: `arg_max` in `daily_metrics`,
+  `isnan` and `isinf` in the price rejection macro, and `QUALIFY` in
+  `features_daily`.
 
 ## Alternatives considered
 
